@@ -1,3 +1,7 @@
+// Browser API compatibility layer
+// Use browser namespace if available (Firefox), otherwise chrome (Chrome)
+const browserAPI = typeof browser !== 'undefined' ? browser : chrome;
+
 // Popup script for extension toggle
 const TOGGLE_KEY = 'extension_enabled';
 const DEFAULT_ENABLED = true;
@@ -17,36 +21,39 @@ const autoButton = document.getElementById('autoButton');
 const manualButton = document.getElementById('manualButton');
 
 // Load current state
-chrome.storage.local.get([TOGGLE_KEY, MODE_KEY], (result) => {
+async function loadCurrentState() {
+  const result = await browserAPI.storage.local.get([TOGGLE_KEY, MODE_KEY]);
   const isEnabled = result[TOGGLE_KEY] !== undefined ? result[TOGGLE_KEY] : DEFAULT_ENABLED;
   updateToggle(isEnabled);
   
   const mode = result[MODE_KEY] || DEFAULT_MODE;
   loadMode(mode);
-});
+}
+
+loadCurrentState();
 
 // Toggle click handler
-toggleSwitch.addEventListener('click', () => {
-  chrome.storage.local.get([TOGGLE_KEY], (result) => {
-    const currentState = result[TOGGLE_KEY] !== undefined ? result[TOGGLE_KEY] : DEFAULT_ENABLED;
-    const newState = !currentState;
-    
-    chrome.storage.local.set({ [TOGGLE_KEY]: newState }, () => {
-      updateToggle(newState);
-      
-      // Notify content script to update
-      chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-        if (tabs[0]) {
-          chrome.tabs.sendMessage(tabs[0].id, {
-            type: 'extensionToggle',
-            enabled: newState
-          }).catch(() => {
-            // Tab might not have content script loaded yet, that's okay
-          });
-        }
+toggleSwitch.addEventListener('click', async () => {
+  const result = await browserAPI.storage.local.get([TOGGLE_KEY]);
+  const currentState = result[TOGGLE_KEY] !== undefined ? result[TOGGLE_KEY] : DEFAULT_ENABLED;
+  const newState = !currentState;
+  
+  await browserAPI.storage.local.set({ [TOGGLE_KEY]: newState });
+  updateToggle(newState);
+  
+  // Notify content script to update
+  const tabs = await browserAPI.tabs.query({ active: true, currentWindow: true });
+  if (tabs[0]) {
+    try {
+      await browserAPI.tabs.sendMessage(tabs[0].id, {
+        type: 'extensionToggle',
+        enabled: newState
       });
-    });
-  });
+    } catch (error) {
+      // Tab might not have content script loaded yet, that's okay
+      console.log('Could not send message to content script:', error.message);
+    }
+  }
 });
 
 function updateToggle(isEnabled) {
@@ -79,22 +86,23 @@ function updateModeUI(mode) {
 }
 
 // Set mode and notify content script
-function setMode(newMode) {
-  chrome.storage.local.set({ [MODE_KEY]: newMode }, () => {
-    updateModeUI(newMode);
-    
-    // Notify content script about mode change
-    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-      if (tabs[0]) {
-        chrome.tabs.sendMessage(tabs[0].id, {
-          type: 'modeChange',
-          mode: newMode
-        }).catch(() => {
-          // Tab might not have content script loaded yet, that's okay
-        });
-      }
-    });
-  });
+async function setMode(newMode) {
+  await browserAPI.storage.local.set({ [MODE_KEY]: newMode });
+  updateModeUI(newMode);
+  
+  // Notify content script about mode change
+  const tabs = await browserAPI.tabs.query({ active: true, currentWindow: true });
+  if (tabs[0]) {
+    try {
+      await browserAPI.tabs.sendMessage(tabs[0].id, {
+        type: 'modeChange',
+        mode: newMode
+      });
+    } catch (error) {
+      // Tab might not have content script loaded yet, that's okay
+      console.log('Could not send message to content script:', error.message);
+    }
+  }
 }
 
 // Mode button click handlers

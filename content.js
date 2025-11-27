@@ -1,3 +1,7 @@
+// Browser API compatibility layer
+// Use browser namespace if available (Firefox), otherwise chrome (Chrome)
+const browserAPI = typeof browser !== 'undefined' ? browser : chrome;
+
 // Cache for user locations - persistent storage
 let locationCache = new Map();
 const CACHE_KEY = 'twitter_location_cache';
@@ -256,7 +260,7 @@ function buildBracketedDisplay(displayInfo) {
 // Load enabled state
 async function loadEnabledState() {
   try {
-    const result = await chrome.storage.local.get([TOGGLE_KEY]);
+    const result = await browserAPI.storage.local.get([TOGGLE_KEY]);
     extensionEnabled = result[TOGGLE_KEY] !== undefined ? result[TOGGLE_KEY] : DEFAULT_ENABLED;
     console.log('Extension enabled:', extensionEnabled);
   } catch (error) {
@@ -268,7 +272,7 @@ async function loadEnabledState() {
 // Load display mode
 async function loadDisplayMode() {
   try {
-    const result = await chrome.storage.local.get([MODE_KEY]);
+    const result = await browserAPI.storage.local.get([MODE_KEY]);
     displayMode = result[MODE_KEY] || MODE_AUTO;
     console.log('Display mode:', displayMode);
   } catch (error) {
@@ -278,7 +282,7 @@ async function loadDisplayMode() {
 }
 
 // Listen for toggle changes from popup
-chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+browserAPI.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.type === 'extensionToggle') {
     extensionEnabled = request.enabled;
     console.log('Extension toggled:', extensionEnabled);
@@ -305,12 +309,12 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 async function loadCache() {
   try {
     // Check if extension context is still valid
-    if (!chrome.runtime?.id) {
+    if (!browserAPI.runtime?.id) {
       console.log('Extension context invalidated, skipping cache load');
       return;
     }
     
-    const result = await chrome.storage.local.get(CACHE_KEY);
+    const result = await browserAPI.storage.local.get(CACHE_KEY);
     if (result[CACHE_KEY]) {
       const cached = result[CACHE_KEY];
       const now = Date.now();
@@ -360,7 +364,7 @@ async function loadCache() {
 async function saveCache() {
   try {
     // Check if extension context is still valid
-    if (!chrome.runtime?.id) {
+    if (!browserAPI.runtime?.id) {
       console.log('Extension context invalidated, skipping cache save');
       return;
     }
@@ -382,7 +386,7 @@ async function saveCache() {
       };
     }
     
-    await chrome.storage.local.set({ [CACHE_KEY]: cacheObj });
+    await browserAPI.storage.local.set({ [CACHE_KEY]: cacheObj });
   } catch (error) {
     // Extension context invalidated errors are expected when extension is reloaded
     if (error.message?.includes('Extension context invalidated') || 
@@ -405,7 +409,7 @@ function isCacheEntryExpired(cacheEntry) {
 // Save a single entry to cache
 async function saveCacheEntry(username, location) {
   // Check if extension context is still valid
-  if (!chrome.runtime?.id) {
+  if (!browserAPI.runtime?.id) {
     console.log('Extension context invalidated, skipping cache entry save');
     return;
   }
@@ -432,7 +436,7 @@ async function saveCacheEntry(username, location) {
 // Inject script into page context to access fetch with proper cookies
 function injectPageScript() {
   const script = document.createElement('script');
-  script.src = chrome.runtime.getURL('pageScript.js');
+  script.src = browserAPI.runtime.getURL('pageScript.js');
   script.onload = function() {
     this.remove();
   };
@@ -1063,7 +1067,21 @@ async function displayLocationInfo(container, screenName, displayInfo) {
 
 // Export for testing
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { createLocationButton, createErrorIndicator, handleButtonClick, addButtonToUsername, displayLocationInfo };
+  module.exports = { 
+    createLocationButton, 
+    createErrorIndicator, 
+    handleButtonClick, 
+    addButtonToUsername, 
+    displayLocationInfo,
+    buildBracketedDisplay,
+    buildLocationDisplayInfo,
+    normalizeLocationData,
+    createBadgeSpan,
+    createFlagElement,
+    createBracketWrapper,
+    createTextSegment,
+    createIndicatorSegment
+  };
 }
 
 // Function to add flag to username element
