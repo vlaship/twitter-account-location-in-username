@@ -317,3 +317,13 @@ function getCountryFlag(countryName) {
 
   return null;
 }
+
+// Export for testing
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = { 
+    getCountryFlag,
+    getFlagEmoji,
+    COUNTRY_FLAGS,
+    SPECIAL_FLAGS
+  };
+}
